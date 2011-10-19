@@ -23,7 +23,7 @@ namespace Sleight.Tests
 
         void calling_methods()
         {
-            context["stubbing at the method level with"] = () =>
+            context["stubbing at the method level"] = () =>
             {
                 act = () => result = asType.SayHello("Jane Doe");
 
@@ -57,17 +57,31 @@ namespace Sleight.Tests
                     mock.Stub("SayHello").Returns("Hello");
 
                     mock.Stub("SayHello").WithParameters("John Doe").Returns("Hello John");
-
-                    mock.Stub("SayHello").WithParameters("Jan Doe").Returns("Hello Jane");
                 };
 
-                xit["returns the value based on parameter granularity"] = () =>
+                it["returns the value based on parameter granularity"] = () =>
                 {
                     (asType.SayHello("John Doe") as object).should_be("Hello John");
 
-                    (asType.SayHello("Jane Doe") as object).should_be("Hello Jane");
-
                     (asType.SayHello("Anything Else") as object).should_be("Hello");
+                };
+
+                context["method is called without arguments"] = () =>
+                {
+                    it["defaults to the method level stub"] = () =>
+                        (asType.SayHello() as object).should_be("Hello");
+                };
+
+                context["method level stub is redefined"] = () =>
+                {
+                    before = () => mock.Stub("SayHello").Returns("Hi");
+
+                    it["returns redefined method level stub and original parameter stub"] = () =>
+                    {
+                        (asType.SayHello("John Doe") as object).should_be("Hello John");
+
+                        (asType.SayHello("Anything Else") as object).should_be("Hi");
+                    };
                 };
             };
         }
