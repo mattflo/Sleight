@@ -10,7 +10,7 @@ namespace Sleight
     {
         string currentMember;
 
-        string currentParameter;
+        object[] currentParameters;
 
         Dictionary<string, object> methodStubs;
 
@@ -27,39 +27,59 @@ namespace Sleight
             parameterStubs = new List<dynamic>();
         }
 
-        public Mock WithParameters(string value)
+        public Mock WithParameters(params object[] values)
         {
-            currentParameter = value;
+            currentParameters = values;
 
             return this;
         }
 
         public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
         {
-            result = FindReturnValue(binder, args);
+            result = FindReturnValue(binder.Name, args);
 
             RecordExecution(binder.Name, args, result, TypeArguments(binder));
 
             return true;
         }
 
-        object FindReturnValue(InvokeMemberBinder binder, object[] args)
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
         {
-            var paramResult = parameterStubs.FirstOrDefault(s => s.MethodName == binder.Name && s.Parameter == args.FirstOrDefault());
+            result = FindReturnValue(binder.Name, null);
+
+            RecordExecution(binder.Name, null, result, null);
+
+            return true;
+        }
+
+        public override bool TrySetMember(SetMemberBinder binder, object value)
+        {
+            methodStubs[binder.Name] = value;
+
+            RecordExecution(binder.Name, new object[] { value }, null, null);
+
+            return true;
+        }
+
+        object FindReturnValue(string binderName, object[] args)
+        {
+            var paramResult =
+                parameterStubs.FirstOrDefault(s => s.MethodName == binderName 
+                    && (s.Parameters as object[]).SequenceEqual(args));
 
             if (paramResult != null) return paramResult.ReturnValue;
 
-            return methodStubs.ValueOrNull(binder.Name);
+            return methodStubs.ValueOrNull(binderName);
         }
 
         void RecordExecution(string name, object[] args, object returnValue, Type[] typeArguments)
         {
             lastExecution[name] = new Execution
             {
-                Parameter = args.FirstOrDefault(),
+                Parameter = (args ?? new object[0]).FirstOrDefault(),
                 Parameters = args,
                 ReturnValue = returnValue,
-                TypeArgument = typeArguments.FirstOrDefault(),
+                TypeArgument = (typeArguments ?? new Type[0]).FirstOrDefault(),
                 TypeArguments = typeArguments
             };
         }
@@ -83,7 +103,7 @@ namespace Sleight
                 parameterStubs.Add(new
                 {
                     MethodName = currentMember,
-                    Parameter = currentParameter,
+                    Parameters = currentParameters,
                     ReturnValue = value
                 });
             }
@@ -95,12 +115,12 @@ namespace Sleight
 
         void ResetMode()
         {
-            currentParameter = null;
+            currentParameters = null;
         }
 
         bool IsParameterMode()
         {
-            return !string.IsNullOrEmpty(currentParameter);
+            return !(currentParameters == null);
         }
 
         private Type[] TypeArguments(InvokeMemberBinder binder)

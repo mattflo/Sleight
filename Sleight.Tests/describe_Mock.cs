@@ -66,6 +66,17 @@ namespace Sleight.Tests
                     (asType.SayHello("Anything Else") as object).should_be("Hello");
                 };
 
+                context["stubbing multiple parameters"] = () =>
+                {
+                    before = () => 
+                        mock.Stub("SayHello")
+                            .WithParameters("John Doe", "Message")
+                            .Returns("Hello, John Doe: Message");
+
+                    it["defaults to multiple parameters"] = () => 
+                        (asType.SayHello("John Doe", "Message") as object).should_be("Hello, John Doe: Message");
+                };
+
                 context["method is called without arguments"] = () =>
                 {
                     it["defaults to the method level stub"] = () =>
@@ -155,6 +166,55 @@ namespace Sleight.Tests
                     mock.ExecutionFor("SayHello").TypeArguments[0].should_be(typeof(string));
 
                     mock.ExecutionFor("SayHello").TypeArguments[1].should_be(typeof(int));
+                };
+            };
+        }
+
+        void describe_stubbing_properties()
+        {
+            act = () => result = asType.FirstName;
+
+            context["stubbing a property"] = () =>
+            {
+                before = () => mock.Stub("FirstName").Returns("Amir");
+
+                it["returns stub"] = () => result.should_be("Amir");
+            };
+
+            context["calling property that has not stub"] = () =>
+            {
+                it["returns null"] = () => result.should_be(null);
+            };
+
+            context["setting a property on stub"] = () =>
+            {
+                act = () => asType.FirstName = "Another";
+
+                it["sets the property on stub"] = () =>
+                    (asType.FirstName as object).should_be("Another");
+            };
+        }
+
+        void recording_properties()
+        {
+            act = () => result = asType.FirstName;
+
+            it["records the member and the value at time of access"] = () =>
+                mock.ExecutionFor("FirstName").ReturnValue.should_be(null);
+
+            context["property has been stubbed"] = () =>
+            {
+                before = () => mock.Stub("FirstName").Returns("Amir");
+
+                it["records the member and the stubbed value"] = () =>
+                    mock.ExecutionFor("FirstName").ReturnValue.should_be("Amir");
+
+                context["setting the property"] = () =>
+                {
+                    act = () => asType.FirstName = "Another";
+
+                    it["records the setting of member"] = () =>
+                        mock.ExecutionFor("FirstName").Parameter.should_be("Another");
                 };
             };
         }
